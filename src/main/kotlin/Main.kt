@@ -6,88 +6,63 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import java.util.Random
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
-    val emails = generateInput()
-    println(emails)
+    generateInput().let(::println)
 }
 
-fun generateInput(): List<Email> {
-    val officeHours = listOf(
-        OfficeHours(ZoneId.of("Europe/Paris"), 9, 18),
-        OfficeHours(ZoneId.of("Australia/Sydney"), 10, 18),
-        OfficeHours(ZoneId.of("Asia/Singapore"), 8, 17),
-        OfficeHours(ZoneId.of("Hongkong"), 8, 17),
-        OfficeHours(ZoneId.of("America/New_York"), 10, 18),
-        OfficeHours(ZoneId.of("America/Los_Angeles"), 7, 16)
-    )
+fun generateInput(): List<Email> =
+    generateSequence { User(getRandomString(5), officeHours.random()) }
+        .take(10)
+        .toList()
+        .let { users ->
+            generateSequence { users.shuffled().take(Random().nextInt(2, 5)) }
+                .map(::generateEmailLoop)
+                .take(Random().nextInt(10, 15))
+                .flatten()
+                .shuffled()
+                .toList()
+        }
 
-    val users = arrayListOf<User>()
-    for (i in 0..9) {
-        users.add(User(getRandomString(5), officeHours.random()))
+fun generateEmailLoop(users: List<User>): List<Email> =
+    Email(
+        subject = getRandomString(10),
+        sender = users[0],
+        receiver = users[1],
+        timeSent = ZonedDateTime.of(
+            2024, 1, 8, (users[0].officeHours.start..<users[0].officeHours.end).random(),
+            (0..59).random(), (0..59).random(), 0, users[0].officeHours.timeZone
+        )
+    ).let { generateSequence(it, generateResponse(users)).take((5..10).random()).toList() }
+
+fun generateResponse(users: List<User>): (Email) -> Email =
+    { email ->
+        Email(
+            subject = "RE: ${email.subject}",
+            sender = email.receiver,
+            receiver = users.filter { user -> user.name != email.receiver.name }.random(),
+            timeSent = generateResponseTime(email.timeSent, email.receiver)
+        )
     }
-    val emailLoops = arrayListOf<List<Email>>()
-    for (i in 0..Random().nextInt(10, 15)) {
-        emailLoops.add(generateEmailLoop(users.shuffled().take(Random().nextInt(2, 5))))
-    }
 
-    return emailLoops.flatten().shuffled()
-}
-
-fun generateEmailLoop(users: List<User>): List<Email> {
-    val loop = arrayListOf<Email>()
-    val sender = users[0]
-    val subject = getRandomString(10)
-    val receiver = users[1]
-    val sentTime = ZonedDateTime.of(
-        2024, 1, 8, (sender.officeHours.start..<sender.officeHours.end).random(),
-        (0..59).random(), (0..59).random(), 0, sender.officeHours.timeZone
-    )
-    var email = Email(subject, sender, receiver, sentTime)
-    loop.add(email)
-    for (i in 0..(5..10).random()) {
-        val response = generateResponse(email, users)
-        loop.add(response)
-        email = response
-    }
-    return loop
-}
-
-fun generateResponse(email: Email, users: List<User>): Email {
-    val subject = "RE: " + email.subject
-    val sender = email.receiver
-    val receiver = users.filter { user -> user.name != sender.name }.random()
-    val responseTime = generateResponseTime(email.timeSent, sender)
-    return Email(subject, sender, receiver, responseTime)
-}
-
-fun generateResponseTime(timeReceived: ZonedDateTime, user: User): ZonedDateTime {
-    var timeResponded = timeReceived.withZoneSameInstant(user.officeHours.timeZone)
-    timeResponded = timeResponded
+fun generateResponseTime(timeReceived: ZonedDateTime, user: User): ZonedDateTime =
+    timeReceived.withZoneSameInstant(user.officeHours.timeZone)
         .withHour((user.officeHours.start..<user.officeHours.end).random())
         .withMinute((0..59).random())
         .withSecond((0..59).random())
-    if (timeResponded.isBefore(timeReceived)) {
-        timeResponded = timeResponded.plusDays(1)
-    }
-    // Add a 25% chance that the next working day is also skipped
-    if (Random().nextInt(0, 100) < 25) {
-        timeResponded = timeResponded.plusDays(1)
-
-    }
-    while (timeResponded.dayOfWeek == DayOfWeek.SATURDAY || timeResponded.dayOfWeek == DayOfWeek.SUNDAY) {
-        timeResponded = timeResponded.plusDays(1)
-    }
-    val responseTime = calculateResponseTime(timeReceived, timeResponded, user)
-    user.responseTimes = arrayListOf(*user.responseTimes.toTypedArray(), responseTime)
-    user.responseTimesWithoutOfficeHours = arrayListOf(
-        *user.responseTimesWithoutOfficeHours.toTypedArray(),
-        ChronoUnit.SECONDS.between(timeResponded, timeReceived)
-    )
-
-    return timeResponded
-}
+        .let { if (it.isBefore(timeReceived)) it.plusDays(1) else it }
+        .let {
+            // Add a 25% chance that the next working day is also skipped
+            if ((0..3).random() == 0) it.plusDays(1) else it
+        }.let {
+            when (it.dayOfWeek) {
+                DayOfWeek.SATURDAY -> it.plusDays(2)
+                DayOfWeek.SUNDAY -> it.plusDays(1)
+                else -> it
+            }
+        }.also {
+            user.responseTimes += calculateResponseTime(timeReceived, it, user)
+            user.responseTimesWithoutOfficeHours += ChronoUnit.SECONDS.between(it, timeReceived)
+        }
 
 fun calculateResponseTime(timeReceived: ZonedDateTime, timeResponded: ZonedDateTime, user: User): Long {
     if (timeReceived.withZoneSameInstant(user.officeHours.timeZone).dayOfYear == timeResponded.dayOfYear) {
@@ -125,18 +100,23 @@ fun calculateResponseTime(timeReceived: ZonedDateTime, timeResponded: ZonedDateT
 data class User(
     val name: String,
     val officeHours: OfficeHours,
-    var responseTimesWithoutOfficeHours: List<Long> = arrayListOf(),
-    var responseTimes: List<Long> = arrayListOf()
+    val responseTimesWithoutOfficeHours: MutableList<Long> = mutableListOf(),
+    val responseTimes: MutableList<Long> = mutableListOf()
 )
 
 data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int)
 
 data class Email(val subject: String, val sender: User, val receiver: User, val timeSent: ZonedDateTime)
 
+fun getRandomString(length: Int): String = (1..length).fold("") { acc, _ -> "$acc${allowedChars.random()}" }
 
-fun getRandomString(length: Int): String {
-    val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
-    return (1..length)
-        .map { allowedChars.random() }
-        .joinToString("")
-}
+private val officeHours = listOf(
+    OfficeHours(ZoneId.of("Europe/Paris"), 9, 18),
+    OfficeHours(ZoneId.of("Australia/Sydney"), 10, 18),
+    OfficeHours(ZoneId.of("Asia/Singapore"), 8, 17),
+    OfficeHours(ZoneId.of("Hongkong"), 8, 17),
+    OfficeHours(ZoneId.of("America/New_York"), 10, 18),
+    OfficeHours(ZoneId.of("America/Los_Angeles"), 7, 16)
+)
+
+private val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
