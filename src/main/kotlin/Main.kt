@@ -7,7 +7,7 @@ import java.time.temporal.ChronoUnit
 import java.util.Random
 
 fun main() {
-    generateInput().let(::println)
+    generateInput().forEach(::println)
 }
 
 fun generateInput(): List<Email> =
