@@ -1,6 +1,7 @@
 package org.example
 
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -28,10 +29,9 @@ fun generateEmailLoop(users: List<User>): List<Email> =
         subject = getRandomString(10),
         sender = users[0],
         receiver = users[1],
-        timeSent = ZonedDateTime.of(
-            2024, 1, 8, (users[0].officeHours.start..<users[0].officeHours.end).random(),
-            (0..59).random(), (0..59).random(), 0, users[0].officeHours.timeZone
-        )
+        timeSent = LocalDate.of(2024, 1, 8)
+            .atStartOfDay(users[0].officeHours.timeZone)
+            .let(users[0].officeHours::randomTimeSince)
     ).let { generateSequence(it, generateResponse(users)).take((5..10).random()).toList() }
 
 fun generateResponse(users: List<User>): (Email) -> Email =
@@ -45,10 +45,7 @@ fun generateResponse(users: List<User>): (Email) -> Email =
     }
 
 fun generateResponseTime(timeReceived: ZonedDateTime, user: User): ZonedDateTime =
-    timeReceived.withZoneSameInstant(user.officeHours.timeZone)
-        .withHour((user.officeHours.start..<user.officeHours.end).random())
-        .withMinute((0..59).random())
-        .withSecond((0..59).random())
+    user.officeHours.randomTimeSince(timeReceived)
         .let { if (it.isBefore(timeReceived)) it.plusDays(1) else it }
         .let {
             // Add a 25% chance that the next working day is also skipped
@@ -79,7 +76,6 @@ fun calculateResponseTime(timeReceived: ZonedDateTime, timeResponded: ZonedDateT
         ((timeReceived.dayOfWeek == DayOfWeek.FRIDAY && timeResponded.dayOfWeek == DayOfWeek.TUESDAY) ||
                 (timeReceived.dayOfWeek == DayOfWeek.THURSDAY && timeResponded.dayOfWeek == DayOfWeek.MONDAY) ||
                 (timeResponded.dayOfWeek.value - timeReceived.dayOfWeek.value > 1))
-
     val timeTakenDuringFullDay =
         if (emailNotRespondedToDuringAFullWorkingDay) (user.officeHours.end - user.officeHours.start) * 3600 else 0
     // Received on previous day - need to check if received before end of office hours
@@ -104,7 +100,13 @@ data class User(
     val responseTimes: MutableList<Long> = mutableListOf()
 )
 
-data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int)
+data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
+    fun randomTimeSince(from: ZonedDateTime): ZonedDateTime =
+        from.withZoneSameInstant(timeZone)
+            .withHour((start..<end).random())
+            .withMinute((0..59).random())
+            .withSecond((0..59).random())
+}
 
 data class Email(val subject: String, val sender: User, val receiver: User, val timeSent: ZonedDateTime)
 
