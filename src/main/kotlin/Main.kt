@@ -5,46 +5,69 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
-import java.util.Random
 
 fun main() {
-    generateInput().forEach(::println)
+    generateInput(DifficultyLevel.DEFAULT).forEach(::println)
 }
 
-fun generateInput(): List<Email> =
+enum class DifficultyLevel(
+    val userCount: () -> Int,
+    val usersPerThread: () -> Int,
+    val threadCount: () -> Int,
+    val responsesPerThread: () -> Int
+) {
+    DEFAULT(
+        userCount = { 5 },
+        usersPerThread = { 5 },
+        threadCount = { (10..15).random() },
+        responsesPerThread = { (5..10).random() }
+    ),
+    LARGE(
+        userCount = { 50 },
+        usersPerThread = { 25 },
+        threadCount = { (100..150).random() },
+        responsesPerThread = { (50..100).random() }
+    );
+}
+
+fun generateInput(difficultyLevel: DifficultyLevel): List<Email> =
     generateSequence { User(getRandomString(5), officeHours.random()) }
-        .take(10)
+        .take(difficultyLevel.userCount())
         .toList()
-        .let { users ->
-            generateSequence { users.shuffled().take(Random().nextInt(2, 5)) }
-                .map(::generateEmailLoop)
-                .take(Random().nextInt(10, 15))
-                .flatten()
-                .shuffled()
-                .toList()
-        }
+        .let { users -> generateSequence { users.shuffled().take(difficultyLevel.usersPerThread()) } }
+        .map(::generateEmailThread)
+        .take(difficultyLevel.threadCount())
+        .flatMap { it.take(difficultyLevel.responsesPerThread()) }
+        .shuffled()
+        .toList()
 
-fun generateEmailLoop(users: List<User>): List<Email> =
-    Email(
-        subject = getRandomString(10),
-        sender = users[0],
-        receiver = users[1],
-        timeSent = LocalDate.of(2024, 1, 8)
-            .atStartOfDay(users[0].officeHours.timeZone)
-            .let(users[0].officeHours::randomTimeSince)
-    ).let { generateSequence(it, generateResponse(users)).take((5..10).random()).toList() }
+private fun generateEmailThread(users: List<User>): Sequence<Email> =
+    generateSequence(
+        seed = Email(
+            subject = getRandomString(10),
+            sender = users[0],
+            receiver = users[1],
+            timeSent = LocalDate.of(2024, 1, 8)
+                .atStartOfDay(users[0].officeHours.timeZone)
+                .let(users[0].officeHours::randomTimeSince)
+        ),
+        nextFunction = generateResponseWith(randomReceiverFrom(users))
+    )
 
-fun generateResponse(users: List<User>): (Email) -> Email =
+private fun randomReceiverFrom(users: List<User>): (Email) -> User =
+    { email -> users.filter { user -> user.name != email.receiver.name }.random() }
+
+private fun generateResponseWith(getReceiver: (Email) -> User): (Email) -> Email =
     { email ->
         Email(
             subject = "RE: ${email.subject}",
             sender = email.receiver,
-            receiver = users.filter { user -> user.name != email.receiver.name }.random(),
+            receiver = getReceiver(email),
             timeSent = generateResponseTime(email.timeSent, email.receiver)
         )
     }
 
-fun generateResponseTime(timeReceived: ZonedDateTime, user: User): ZonedDateTime =
+private fun generateResponseTime(timeReceived: ZonedDateTime, user: User): ZonedDateTime =
     user.officeHours.randomTimeSince(timeReceived)
         .let { if (it.isBefore(timeReceived)) it.plusDays(1) else it }
         .let {
@@ -98,7 +121,10 @@ data class User(
     val officeHours: OfficeHours,
     val responseTimesWithoutOfficeHours: MutableList<Long> = mutableListOf(),
     val responseTimes: MutableList<Long> = mutableListOf()
-)
+) {
+    override fun toString(): String =
+        "($name [$officeHours] responseTimesWithoutOfficeHours=$responseTimesWithoutOfficeHours, responseTimes=$responseTimes)"
+}
 
 data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
     fun randomTimeSince(from: ZonedDateTime): ZonedDateTime =
@@ -106,6 +132,8 @@ data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
             .withHour((start..<end).random())
             .withMinute((0..59).random())
             .withSecond((0..59).random())
+
+    override fun toString(): String = "$start..$end@$timeZone"
 }
 
 data class Email(val subject: String, val sender: User, val receiver: User, val timeSent: ZonedDateTime)
