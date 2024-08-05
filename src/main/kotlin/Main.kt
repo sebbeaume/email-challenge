@@ -5,9 +5,10 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
+import kotlin.math.roundToLong
 
 fun main() {
-    generateInput(DifficultyLevel.DEFAULT).forEach(::println)
+    generateInput(DifficultyLevel.DEFAULT).emails.forEach(::println)
 }
 
 enum class DifficultyLevel(
@@ -17,10 +18,10 @@ enum class DifficultyLevel(
     val responsesPerThread: () -> Int
 ) {
     DEFAULT(
-        userCount = { 5 },
-        usersPerThread = { 5 },
-        threadCount = { (10..15).random() },
-        responsesPerThread = { (5..10).random() }
+        userCount = { 25 },
+        usersPerThread = { 10 },
+        threadCount = { (20..30).random() },
+        responsesPerThread = { (10..20).random() }
     ),
     LARGE(
         userCount = { 50 },
@@ -30,16 +31,41 @@ enum class DifficultyLevel(
     );
 }
 
-fun generateInput(difficultyLevel: DifficultyLevel): List<Email> =
-    generateSequence { User(getRandomString(5), officeHours.random()) }
+fun calculateScore(input: Input, response: Map<String, Long>): Int {
+    return input.users.sumOf { user ->
+        calculateScoreForUser(user, response)
+    };
+}
+
+private fun calculateScoreForUser(user: User, response: Map<String, Long>): Int {
+    val expectedResponseTime = user.responseTimes.average().roundToLong();
+    val expectedResponseTimesWithoutOfficeHours = user.responseTimesWithoutOfficeHours.average().roundToLong()
+    val responseReceived = response[user.name];
+    if (responseReceived == expectedResponseTime) {
+        return 4
+    }
+    if (responseReceived == expectedResponseTimesWithoutOfficeHours) {
+        return 1
+    }
+    return 0
+}
+
+fun generateInput(difficultyLevel: DifficultyLevel): Input {
+    val userList: List<User> = generateSequence { User(getRandomString(5), officeHours.random()) }
         .take(difficultyLevel.userCount())
         .toList()
-        .let { users -> generateSequence { users.shuffled().take(difficultyLevel.usersPerThread()) } }
-        .map(::generateEmailThread)
-        .take(difficultyLevel.threadCount())
-        .flatMap { it.take(difficultyLevel.responsesPerThread()) }
-        .shuffled()
-        .toList()
+
+    val emails: List<Email> =
+        userList.let { users -> generateSequence { users.shuffled().take(difficultyLevel.usersPerThread()) } }
+            .map(::generateEmailThread)
+            .take(difficultyLevel.threadCount())
+            .flatMap { it.take(difficultyLevel.responsesPerThread()) }
+            .shuffled()
+            .toList()
+
+    return Input(emails, userList)
+}
+
 
 private fun generateEmailThread(users: List<User>): Sequence<Email> =
     generateSequence(
@@ -80,9 +106,16 @@ private fun generateResponseTime(timeReceived: ZonedDateTime, user: User): Zoned
                 else -> it
             }
         }.also {
-            user.responseTimes += calculateResponseTime(timeReceived, it, user)
-            user.responseTimesWithoutOfficeHours += ChronoUnit.SECONDS.between(it, timeReceived)
+            user.responseTimes += calculateResponseTime(timeReceived, it, user);
+            user.responseTimesWithoutOfficeHours += calculateResponseRimeWithoutOfficeHours(timeReceived, it)
         }
+
+fun calculateResponseRimeWithoutOfficeHours(
+    timeReceived: ZonedDateTime,
+    timeResponded: ZonedDateTime,
+): Long {
+    return ChronoUnit.SECONDS.between(timeReceived, timeResponded)
+}
 
 fun calculateResponseTime(timeReceived: ZonedDateTime, timeResponded: ZonedDateTime, user: User): Long {
     if (timeReceived.withZoneSameInstant(user.officeHours.timeZone).dayOfYear == timeResponded.dayOfYear) {
@@ -104,7 +137,9 @@ fun calculateResponseTime(timeReceived: ZonedDateTime, timeResponded: ZonedDateT
     // Received on previous day - need to check if received before end of office hours
     if (timeReceived.withZoneSameInstant(user.officeHours.timeZone).hour < user.officeHours.end) {
         // Received during working hours : time for response is time Left in the working day + time taken during next working day
-        val endOfOfficeDay = timeReceived.withHour(user.officeHours.end).withMinute(0).withSecond(0)
+        val endOfOfficeDay =
+            timeReceived.withZoneSameInstant(user.officeHours.timeZone).withHour(user.officeHours.end).withMinute(0)
+                .withSecond(0)
         val startOfOfficeHours = timeResponded.withHour(user.officeHours.start).withMinute(0).withSecond(0)
         return timeTakenDuringFullDay + ChronoUnit.SECONDS.between(
             timeReceived,
@@ -137,6 +172,8 @@ data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
 }
 
 data class Email(val subject: String, val sender: User, val receiver: User, val timeSent: ZonedDateTime)
+
+data class Input(val emails: List<Email>, val users: List<User>);
 
 fun getRandomString(length: Int): String = (1..length).fold("") { acc, _ -> "$acc${allowedChars.random()}" }
 
