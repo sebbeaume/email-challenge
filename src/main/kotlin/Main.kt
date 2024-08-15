@@ -38,16 +38,13 @@ fun calculateScore(input: Input, response: Map<String, Long>): Int {
 }
 
 private fun calculateScoreForUser(user: User, response: Map<String, Long>): Int {
-    val expectedResponseTime = user.responseTimes.average().roundToLong();
+    val expectedResponseTime = user.responseTimes.average().roundToLong()
     val expectedResponseTimesWithoutOfficeHours = user.responseTimesWithoutOfficeHours.average().roundToLong()
-    val responseReceived = response[user.name];
-    if (responseReceived == expectedResponseTime) {
-        return 4
+    return when (response[user.name]) {
+        expectedResponseTime -> 4
+        expectedResponseTimesWithoutOfficeHours -> 1
+        else -> 0
     }
-    if (responseReceived == expectedResponseTimesWithoutOfficeHours) {
-        return 1
-    }
-    return 0
 }
 
 fun generateInput(difficultyLevel: DifficultyLevel): Input {
