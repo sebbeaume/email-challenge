@@ -1,5 +1,7 @@
-package org.example
+package com.ubs.codingchallenge.mailtime.model
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.ubs.codingchallenge.mailtime.config.objectMapper
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -7,8 +9,11 @@ import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToLong
 
-fun main() {
-    generateInput(DifficultyLevel.DEFAULT).emails.forEach(::println)
+object MailtimeChallenge : LevelBasedChallenge {
+    override fun createFor(teamUrl: String): ChallengeRequest = createFor(teamUrl, DifficultyLevel.values().first())
+
+    override fun createFor(teamUrl: String, level: ChallengeLevel): ChallengeRequest =
+        generateInput(level as DifficultyLevel)
 }
 
 enum class DifficultyLevel(
@@ -16,7 +21,13 @@ enum class DifficultyLevel(
     val usersPerThread: () -> Int,
     val threadCount: () -> Int,
     val responsesPerThread: () -> Int
-) {
+) : ChallengeLevel {
+    EXAMPLE(
+        userCount = { 5 },
+        usersPerThread = { 3 },
+        threadCount = { (5..10).random() },
+        responsesPerThread = { (5..10).random() }
+    ),
     DEFAULT(
         userCount = { 25 },
         usersPerThread = { 10 },
@@ -29,22 +40,28 @@ enum class DifficultyLevel(
         threadCount = { (100..150).random() },
         responsesPerThread = { (50..100).random() }
     );
+
+    override val difficulty: Int = ordinal
 }
 
-fun calculateScore(input: Input, response: Map<String, Long>): Int {
-    return input.users.sumOf { user ->
-        calculateScoreForUser(user, response)
-    };
-}
+object MailtimeChecker : Checker {
+    override fun convert(rawResponse: String): ChallengeResponse =
+        objectMapper.readValue(rawResponse, Output::class.java)
 
-private fun calculateScoreForUser(user: User, response: Map<String, Long>): Int {
-    val expectedResponseTime = user.responseTimes.average().roundToLong()
-    val expectedResponseTimesWithoutOfficeHours = user.responseTimesWithoutOfficeHours.average().roundToLong()
-    return when (response[user.name]) {
-        expectedResponseTime -> 4
-        expectedResponseTimesWithoutOfficeHours -> 1
-        else -> 0
-    }
+    override fun check(request: ChallengeRequest, response: ChallengeResponse): ChallengeResult =
+        ChallengeResult(
+            score = calculateScore(request as Input, response as Output),
+            message = "MAILTIME!"
+        )
+
+    fun calculateScore(input: Input, output: Output): Int =
+        input.users.sumOf { user ->
+            when (output.response[user.name]) {
+                user.responseTimes.average().roundToLong() -> 4L
+                user.responseTimesWithoutOfficeHours.average().roundToLong() -> 1L
+                else -> 0L
+            }
+        }.toInt()
 }
 
 fun generateInput(difficultyLevel: DifficultyLevel): Input {
@@ -151,8 +168,8 @@ fun calculateResponseTime(timeReceived: ZonedDateTime, timeResponded: ZonedDateT
 data class User(
     val name: String,
     val officeHours: OfficeHours,
-    val responseTimesWithoutOfficeHours: MutableList<Long> = mutableListOf(),
-    val responseTimes: MutableList<Long> = mutableListOf()
+    @get:JsonIgnore val responseTimesWithoutOfficeHours: MutableList<Long> = mutableListOf(),
+    @get:JsonIgnore val responseTimes: MutableList<Long> = mutableListOf()
 ) {
     override fun toString(): String =
         "($name [$officeHours] responseTimesWithoutOfficeHours=$responseTimesWithoutOfficeHours, responseTimes=$responseTimes)"
@@ -170,7 +187,9 @@ data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
 
 data class Email(val subject: String, val sender: User, val receiver: User, val timeSent: ZonedDateTime)
 
-data class Input(val emails: List<Email>, val users: List<User>);
+data class Input(val emails: List<Email>, val users: List<User>) : ChallengeRequest
+
+data class Output(val response: Map<String, Long>) : ChallengeResponse
 
 fun getRandomString(length: Int): String = (1..length).fold("") { acc, _ -> "$acc${allowedChars.random()}" }
 

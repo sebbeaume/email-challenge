@@ -1,0 +1,9 @@
+app:
+  coordinator-auth-token: ${COORDINATOR_AUTH_TOKEN}
+  endpoint-suffix: ${ENDPOINT_SUFFIX}
+
+logging:
+  level:
+    com:
+      ubs:
+        codingchallenge: DEBUG

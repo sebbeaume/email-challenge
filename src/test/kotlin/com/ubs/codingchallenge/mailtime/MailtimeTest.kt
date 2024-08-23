@@ -1,4 +1,13 @@
-import org.example.*
+package com.ubs.codingchallenge.mailtime
+
+import com.ubs.codingchallenge.mailtime.model.DifficultyLevel
+import com.ubs.codingchallenge.mailtime.model.MailtimeChecker
+import com.ubs.codingchallenge.mailtime.model.OfficeHours
+import com.ubs.codingchallenge.mailtime.model.Output
+import com.ubs.codingchallenge.mailtime.model.User
+import com.ubs.codingchallenge.mailtime.model.calculateResponseRimeWithoutOfficeHours
+import com.ubs.codingchallenge.mailtime.model.calculateResponseTime
+import com.ubs.codingchallenge.mailtime.model.generateInput
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.math.roundToLong
@@ -6,7 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-internal class MainTest {
+internal class MailtimeTest {
 
     @Test
     fun should_calculate_response_time_if_received_during_office_hours_and_responded_on_the_same_day() {
@@ -176,7 +185,7 @@ internal class MainTest {
             .toSet()
             .associate { it.name to it.responseTimesWithoutOfficeHours.average().roundToLong() }
 
-        val score = calculateScore(input, response)
+        val score = MailtimeChecker.calculateScore(input, Output(response))
         assertEquals(score, 25)
     }
 
@@ -187,7 +196,7 @@ internal class MainTest {
             .toSet()
             .associate { it.name to it.responseTimes.average().roundToLong() }
 
-        val score = calculateScore(input, response)
+        val score = MailtimeChecker.calculateScore(input, Output(response))
         assertEquals(score, 100)
 
     }
