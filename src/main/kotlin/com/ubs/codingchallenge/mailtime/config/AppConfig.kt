@@ -3,6 +3,7 @@ package com.ubs.codingchallenge.mailtime.config
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinFeature
 import com.fasterxml.jackson.module.kotlin.KotlinModule
+import com.ubs.codingchallenge.mailtime.model.ChallengeLevel
 import com.ubs.codingchallenge.mailtime.model.DifficultyLevel
 import com.ubs.codingchallenge.mailtime.model.MailtimeChallenge
 import com.ubs.codingchallenge.mailtime.model.MailtimeChecker
@@ -24,7 +25,7 @@ data class AppConfig(val coordinatorAuthToken: String, val endpointSuffix: Strin
     fun checker() = MailtimeChecker
 
     @Bean
-    fun levels(): () -> Iterable<DifficultyLevel> =
+    fun levels(): () -> Iterable<ChallengeLevel> =
         { EnumSet.complementOf(EnumSet.of(DifficultyLevel.EXAMPLE)).shuffled() }
 }
 
