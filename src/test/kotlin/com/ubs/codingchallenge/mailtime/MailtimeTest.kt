@@ -181,7 +181,7 @@ internal class MailtimeTest {
     @Test
     fun should_calculate_score_without_office_hours_correctly() {
         val input = generateInput(DifficultyLevel.DEFAULT)
-        val response: Map<String, Long> = input.emails.map { email -> email.sender }
+        val response: Map<String, Long> = input.emails.map { email -> email.senderUser }
             .toSet()
             .associate { it.name to it.responseTimesWithoutOfficeHours.average().roundToLong() }
 
@@ -192,7 +192,7 @@ internal class MailtimeTest {
     @Test
     fun should_calculate_score_with_office_hours_correctly() {
         val input = generateInput(DifficultyLevel.DEFAULT)
-        val response: Map<String, Long> = input.emails.map { email -> email.sender }
+        val response: Map<String, Long> = input.emails.map { email -> email.senderUser }
             .toSet()
             .associate { it.name to it.responseTimes.average().roundToLong() }
 

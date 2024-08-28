@@ -85,8 +85,8 @@ private fun generateEmailThread(users: List<User>): Sequence<Email> =
     generateSequence(
         seed = Email(
             subject = getRandomString(10),
-            sender = users[0],
-            receiver = users[1],
+            senderUser = users[0],
+            receiverUser = users[1],
             timeSent = LocalDate.of(2024, 1, 8)
                 .atStartOfDay(users[0].officeHours.timeZone)
                 .let(users[0].officeHours::randomTimeSince)
@@ -95,15 +95,15 @@ private fun generateEmailThread(users: List<User>): Sequence<Email> =
     )
 
 private fun randomReceiverFrom(users: List<User>): (Email) -> User =
-    { email -> users.filter { user -> user.name != email.receiver.name }.random() }
+    { email -> users.filter { user -> user.name != email.receiverUser.name }.random() }
 
 private fun generateResponseWith(getReceiver: (Email) -> User): (Email) -> Email =
     { email ->
         Email(
             subject = "RE: ${email.subject}",
-            sender = email.receiver,
-            receiver = getReceiver(email),
-            timeSent = generateResponseTime(email.timeSent, email.receiver)
+            senderUser = email.receiverUser,
+            receiverUser = getReceiver(email),
+            timeSent = generateResponseTime(email.timeSent, email.receiverUser)
         )
     }
 
@@ -185,7 +185,15 @@ data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
     override fun toString(): String = "$start..$end@$timeZone"
 }
 
-data class Email(val subject: String, val sender: User, val receiver: User, val timeSent: ZonedDateTime)
+data class Email(
+    val subject: String,
+    @get:JsonIgnore val senderUser: User,
+    @get:JsonIgnore val receiverUser: User,
+    val timeSent: ZonedDateTime
+) {
+    val sender: String get() = senderUser.name
+    val receiver: String get() = receiverUser.name
+}
 
 data class Input(val emails: List<Email>, val users: List<User>) : ChallengeRequest
 
