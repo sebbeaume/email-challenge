@@ -30,6 +30,8 @@ jobs:
           java-version: 17
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+      - name: Check with Gradle
+        run: chmod u+x ./gradlew; ./gradlew check
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
