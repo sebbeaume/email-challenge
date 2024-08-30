@@ -47,7 +47,7 @@ class CoordinatorService(
             override val teamUrl: String = this@asRun.teamUrl
 
             override fun invoke(challengeRequest: ChallengeRequest): ChallengeResponse? =
-                challengeRequest.also { logger.debug("Evaluating [$runId] $teamUrl with: ${it.toJson}") }
+                challengeRequest.also { logger.debug("Evaluating [$runId] $teamUrl") }
                     .post(teamUrl.toHttpUrl() + appConfig.endpointSuffix) { client, response ->
                         client.readTimeout(Duration.ofSeconds(1)) to response
                     }?.use { it.body?.string()?.let(evaluatorService::convert) }
