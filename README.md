@@ -5,7 +5,7 @@ emails...
 
 You will be presented an extract of the emails sent in the company, between workers at different locations around the
 world.
-Your goal is to find the average response time in seconds, rounded up, of each of these workers.
+Your goal is to find the average response time in seconds, rounded off, of each of these workers.
 
 ### Example:
 
