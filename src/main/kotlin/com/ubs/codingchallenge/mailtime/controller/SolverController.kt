@@ -30,8 +30,9 @@ data class SolverInput(val emails: List<SolverEmail>, val users: List<User>)
 
 data class SolverEmail(val subject: String, val sender: String, val receiver: String, val timeSent: OffsetDateTime)
 
-private class MailtimeSolver(private val calculator: (User, OffsetDateTime, OffsetDateTime) -> Duration) :
-        (SolverInput) -> Map<String, Long> {
+private class MailtimeSolver(
+    private val calculator: (User, OffsetDateTime, OffsetDateTime) -> Duration
+) : (SolverInput) -> Map<String, Long> {
     override fun invoke(input: SolverInput): Map<String, Long> = input.run {
         users.associate { it.name to SubPeriod(duration = Duration.ZERO, count = 0) }.toMutableMap() to
                 users.associateBy { it.name }
@@ -54,7 +55,7 @@ private class MailtimeSolver(private val calculator: (User, OffsetDateTime, Offs
         results.mapValues { (_, value) -> value() }
     }
 
-    data class SubPeriod(val duration: Duration, val count: Int) : () -> Long {
+    private data class SubPeriod(val duration: Duration, val count: Int) : () -> Long {
         operator fun plus(other: SubPeriod) =
             SubPeriod(duration = this.duration + other.duration, count = this.count + other.count)
 
@@ -68,54 +69,45 @@ private val partOne: (User, OffsetDateTime, OffsetDateTime) -> Duration =
 private val partTwo: (User, OffsetDateTime, OffsetDateTime) -> Duration =
     { user, previous, current ->
         println("\tDEBUG: CALCULATING FOR [${user.name}, ${user.officeHours}]: $previous .. $current")
-        val (zonedPrevious, zonedCurrent) = user.officeHours(previous) to user.officeHours(current)
-        generateSequence(DateTimeFromTo(officeHours = user.officeHours, from = null, to = zonedPrevious)) {
-            it.until(cutOff = zonedCurrent)
+        val convert: (OffsetDateTime) -> ZonedDateTime = { it.atZoneSameInstant(user.officeHours.timeZone) }
+        val (zonedPrevious, zonedCurrent) = convert(previous) to convert(current)
+        generateSequence(FromTo(officeHours = user.officeHours, from = null, to = zonedPrevious)) {
+            it.until(cutOff = zonedCurrent).apply { println("\t\t$this") }
         }.takeWhile { it.to <= zonedCurrent }
             .mapNotNull { it.toDuration }
             .reduce { a, b -> a + b }
     }
 
-private data class DateTimeFromTo(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
+private data class FromTo(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
     val toDuration: Duration? = from?.let { Duration.between(it, to) }
 
-    fun until(cutOff: ZonedDateTime): DateTimeFromTo? =
+    fun until(cutOff: ZonedDateTime): FromTo? =
         this.copy(
             from = to.takeIf { it.hour in officeHours.start until officeHours.end },
             to = to.with(officeHours.asTemporalAdjuster).coerceAtMost(cutOff)
         ).takeIf { it.toDuration == null || it.toDuration > Duration.ZERO }
-            .also { println("\t\t$this") }
 
-    override fun toString(): String = "${from?.let(::format) ?: "".padEnd(24, ' ')} .. ${format(to)}"
-
-    private fun format(zonedDateTime: ZonedDateTime) = zonedDateTime.toOffsetDateTime().format(formatter)
-
-    companion object {
-        private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssZ")
-    }
-}
-
-private operator fun OfficeHours.invoke(offsetDateTime: OffsetDateTime): ZonedDateTime =
-    offsetDateTime.toInstant().atZone(timeZone)
-
-private val OfficeHours.asTemporalAdjuster: TemporalAdjuster
-    get() = TemporalAdjuster { temporal ->
-        ZonedDateTime.from(temporal).let {
-            when (it.dayOfWeek) {
-                SATURDAY, SUNDAY -> it.with(next(MONDAY)).withHour(start)
-                else -> {
-                    when {
-                        it.hour < start ->
-                            it.withHour(start)
-
-                        it.hour >= end ->
-                            it.with(next(it.dayOfWeek.nextWeekday)).withHour(start)
-
+    private val OfficeHours.asTemporalAdjuster: TemporalAdjuster
+        get() = TemporalAdjuster { temporal ->
+            ZonedDateTime.from(temporal).let {
+                when (it.dayOfWeek) {
+                    SATURDAY, SUNDAY -> it.with(next(MONDAY)).withHour(start)
+                    else -> when {
+                        it.hour < start -> it.withHour(start)
+                        it.hour >= end -> it.with(next(it.dayOfWeek.nextWeekday)).withHour(start)
                         else -> it.withHour(end)
                     }
                 }
-            }
-        }.withMinute(0).withSecond(0).withNano(0)
-    }
+            }.withMinute(0).withSecond(0).withNano(0)
+        }
 
-private val DayOfWeek.nextWeekday: DayOfWeek get() = if (this >= FRIDAY) MONDAY else this.plus(1)
+    private val DayOfWeek.nextWeekday: DayOfWeek get() = if (this >= FRIDAY) MONDAY else this.plus(1)
+
+    override fun toString(): String = "${from?.let(format) ?: "".padEnd(24, ' ')} .. ${format(to)}"
+
+    companion object {
+        private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssZ")
+
+        private val format: (ZonedDateTime) -> String = { it.toOffsetDateTime().format(formatter) }
+    }
+}
