@@ -74,8 +74,8 @@ object MailtimeChecker : Checker {
                 score = score,
                 message = when {
                     score == 4 -> ""
-                    score >= 1 -> "Expecting with office hours: ${input.expectedResponseTimes()} but got ${output.response}"
-                    else -> "Expecting without office hours: ${input.expectedResponseTimesWithoutOfficeHours()} but got ${output.response}"
+                    score >= 1 -> "You've got the easy part right, now factor in office hours!"
+                    else -> "Try harder!"
                 }
             )
         }
