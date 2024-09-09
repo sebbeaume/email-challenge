@@ -83,8 +83,8 @@ object MailtimeChecker : Checker {
     fun calculateScore(input: Input, output: Output): Int =
         input.users.map { user ->
             when (output.response[user.name]) {
-                user.responseTimesWithoutOfficeHours.averageOrZero -> 1L
                 user.responseTimes.averageOrZero -> 4L
+                user.responseTimesWithoutOfficeHours.averageOrZero -> 1L
                 else -> 0L
             }
         }.averageOrZero.toInt()
