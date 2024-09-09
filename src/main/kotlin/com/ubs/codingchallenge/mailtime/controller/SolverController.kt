@@ -73,7 +73,7 @@ private val partTwo: (User, OffsetDateTime, OffsetDateTime) -> Duration =
         val (zonedPrevious, zonedCurrent) = convert(previous) to convert(current)
         generateSequence(FromTo(officeHours = user.officeHours, from = null, to = zonedPrevious)) {
             it.until(cutOff = zonedCurrent).apply { println("\t\t$this") }
-        }.takeWhile { it.to <= zonedCurrent }
+        }.takeWhile { it.from == null || it.from < zonedCurrent }
             .mapNotNull { it.toDuration }
             .reduce { a, b -> a + b }
     }
@@ -81,11 +81,10 @@ private val partTwo: (User, OffsetDateTime, OffsetDateTime) -> Duration =
 private data class FromTo(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
     val toDuration: Duration? = from?.let { Duration.between(it, to) }
 
-    fun until(cutOff: ZonedDateTime): FromTo? =
-        this.copy(
-            from = to.takeIf { it.hour in officeHours.start until officeHours.end },
-            to = to.with(officeHours.asTemporalAdjuster).coerceAtMost(cutOff)
-        ).takeIf { it.toDuration == null || it.toDuration > Duration.ZERO }
+    fun until(cutOff: ZonedDateTime): FromTo =
+        copy(from = to.takeIf { it in officeHours }, to = to.with(officeHours.asTemporalAdjuster).coerceAtMost(cutOff))
+
+    private operator fun OfficeHours.contains(zonedDateTime: ZonedDateTime) = zonedDateTime.hour in start until end
 
     private val OfficeHours.asTemporalAdjuster: TemporalAdjuster
         get() = TemporalAdjuster { temporal ->
