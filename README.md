@@ -5,7 +5,7 @@ emails...
 
 You will be presented an extract of the emails sent in the company, between workers at different locations around the
 world.
-Your goal is to find the average response time in seconds, rounded up, of each of these workers.
+Your goal is to find the average response time in seconds, rounded off, of each of these workers.
 
 ### Example:
 
@@ -49,19 +49,19 @@ Example:
       "subject": "subject",
       "sender": "Alice",
       "receiver": "Bob",
-      "timeSent": "2024-01-12T15:00:00+01:00 Europe/Paris"
+      "timeSent": "2024-01-12T15:00:00+01:00"
     },
     {
       "subject": "RE: subject",
       "sender": "Bob",
       "receiver": "Alice",
-      "timeSent": "2024-01-15T09:00:00+08:00 Asia/Singapore"
+      "timeSent": "2024-01-15T09:00:00+08:00"
     },
     {
-      "subject": "RE:RE: subject",
+      "subject": "RE: RE: subject",
       "sender": "Alice",
       "receiver": "Bob",
-      "timeSent": "2024-01-16T9:05:00+01:00 Europe/Paris"
+      "timeSent": "2024-01-16T9:05:00+01:00"
     }
   ],
   "users": [

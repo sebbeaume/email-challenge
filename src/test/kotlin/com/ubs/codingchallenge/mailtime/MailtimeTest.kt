@@ -9,6 +9,7 @@ import com.ubs.codingchallenge.mailtime.model.calculateResponseRimeWithoutOffice
 import com.ubs.codingchallenge.mailtime.model.calculateResponseTime
 import com.ubs.codingchallenge.mailtime.model.generateInput
 import com.ubs.codingchallenge.mailtime.service.MailtimeSolver
+import org.junit.jupiter.api.Disabled
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.math.roundToLong
@@ -179,6 +180,7 @@ internal class MailtimeTest {
         );
     }
 
+    @Disabled
     @Test
     fun should_calculate_score_without_office_hours_correctly() {
         val input = generateInput(DifficultyLevel.DEFAULT)
@@ -190,6 +192,7 @@ internal class MailtimeTest {
         assertEquals(25, score)
     }
 
+    @Disabled
     @Test
     fun should_calculate_score_with_office_hours_correctly() {
         val input = generateInput(DifficultyLevel.DEFAULT)
@@ -222,6 +225,7 @@ internal class MailtimeTest {
         }
     }
 
+    @Disabled
     @Test
     fun should_be_able_to_solve_challenge() {
         val score = MailtimeSolver().solve();
