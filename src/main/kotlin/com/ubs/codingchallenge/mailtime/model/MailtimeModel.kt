@@ -2,6 +2,7 @@ package com.ubs.codingchallenge.mailtime.model
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.ubs.codingchallenge.mailtime.config.objectMapper
+import com.ubs.codingchallenge.mailtime.service.timeTakenToRespond
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -23,10 +24,10 @@ enum class DifficultyLevel(
     val responsesPerThread: () -> Int
 ) : ChallengeLevel {
     EXAMPLE(
-        userCount = { 5 },
-        usersPerThread = { 3 },
-        threadCount = { (5..10).random() },
-        responsesPerThread = { (5..10).random() }
+        userCount = { 2 },
+        usersPerThread = { 2 },
+        threadCount = { 1 },
+        responsesPerThread = { 2 }
     ),
     DEFAULT(
         userCount = { 25 },
@@ -120,7 +121,7 @@ private fun generateResponseTime(timeReceived: ZonedDateTime, user: User): Zoned
                 else -> it
             }
         }.also {
-            user.responseTimes += calculateResponseTime(timeReceived, it, user);
+            user.responseTimes += timeTakenToRespond(timeReceived, it, user);
             user.responseTimesWithoutOfficeHours += calculateResponseRimeWithoutOfficeHours(timeReceived, it)
         }
 

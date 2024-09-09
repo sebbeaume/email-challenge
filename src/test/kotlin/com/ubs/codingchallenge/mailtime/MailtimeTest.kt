@@ -8,6 +8,7 @@ import com.ubs.codingchallenge.mailtime.model.User
 import com.ubs.codingchallenge.mailtime.model.calculateResponseRimeWithoutOfficeHours
 import com.ubs.codingchallenge.mailtime.model.calculateResponseTime
 import com.ubs.codingchallenge.mailtime.model.generateInput
+import com.ubs.codingchallenge.mailtime.service.MailtimeSolver
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import kotlin.math.roundToLong
@@ -186,7 +187,7 @@ internal class MailtimeTest {
             .associate { it.name to it.responseTimesWithoutOfficeHours.average().roundToLong() }
 
         val score = MailtimeChecker.calculateScore(input, Output(response))
-        assertEquals(score, 25)
+        assertEquals(25, score)
     }
 
     @Test
@@ -219,5 +220,11 @@ internal class MailtimeTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun should_be_able_to_solve_challenge() {
+        val score = MailtimeSolver().solve();
+        assertEquals(100, score)
     }
 }
