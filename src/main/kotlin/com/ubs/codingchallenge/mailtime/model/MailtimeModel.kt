@@ -69,15 +69,8 @@ object MailtimeChecker : Checker {
 
     override fun check(request: ChallengeRequest, response: ChallengeResponse): ChallengeResult =
         (request as Input to response as Output).let { (input, output) ->
-            val score = calculateScore(input, output)
-            ChallengeResult(
-                score = score,
-                message = when {
-                    score == 4 -> ""
-                    score >= 1 -> "You've got the easy part right, now factor in office hours!"
-                    else -> "Try harder!"
-                }
-            )
+            calculateScore(input, output)
+                .let { ChallengeResult(score = 5 * it, message = if (it == 4) "" else hint(input, output)) }
         }
 
     fun calculateScore(input: Input, output: Output): Int =
@@ -88,6 +81,22 @@ object MailtimeChecker : Checker {
                 else -> 0L
             }
         }.averageOrZero.toInt()
+
+    private fun hint(input: Input, output: Output): String {
+        val map = input.expectedResponseTimes().mapValues { (_, value) -> Result(expected = value) }.toMutableMap()
+        output.response.forEach { (key, value) -> map.merge(key, Result(actual = value), Result::plus) }
+        return map.toList().partition { (_, result) -> result.isCorrect }.let { (_, incorrect) ->
+            "Incorrect: $incorrect"
+        }
+    }
+
+    private data class Result(val expected: Long? = null, val actual: Long? = null) {
+        val isCorrect = expected == actual
+
+        operator fun plus(other: Result) = copy(expected = expected ?: other.expected, actual = actual ?: other.actual)
+
+        override fun toString(): String = if (isCorrect) "Correct" else "Expected $expected but got $actual"
+    }
 }
 
 fun generateInput(difficultyLevel: DifficultyLevel): Input {
