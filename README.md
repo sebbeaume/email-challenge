@@ -42,6 +42,8 @@ Example:
 
 ## Your input
 
+We will `POST` the following JSON to an endpoint `/mailtime`:
+
 ```json
 {
   "emails": [
