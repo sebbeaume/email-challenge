@@ -28,7 +28,7 @@ data class AppConfig(val coordinatorAuthToken: String, val endpointSuffix: Strin
 
     @Bean
     fun levels(): () -> Iterable<ChallengeLevel> =
-        { EnumSet.complementOf(EnumSet.of(DifficultyLevel.EXAMPLE)).shuffled() }
+        { List(5) { EnumSet.complementOf(EnumSet.of(DifficultyLevel.EXAMPLE)) }.flatten().shuffled() }
 }
 
 val objectMapper: ObjectMapper = ObjectMapper().registerModule(

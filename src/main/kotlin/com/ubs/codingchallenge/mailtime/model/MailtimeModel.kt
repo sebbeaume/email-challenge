@@ -29,6 +29,18 @@ enum class DifficultyLevel(
         threadCount = { 1 },
         responsesPerThread = { 2 }
     ),
+    EXTRA_SMALL(
+        userCount = { 10 },
+        usersPerThread = { 5 },
+        threadCount = { (5..10).random() },
+        responsesPerThread = { (5..10).random() }
+    ),
+    SMALL(
+        userCount = { 10 },
+        usersPerThread = { 10 },
+        threadCount = { (10..20).random() },
+        responsesPerThread = { (10..20).random() }
+    ),
     DEFAULT(
         userCount = { 25 },
         usersPerThread = { 10 },
@@ -36,6 +48,12 @@ enum class DifficultyLevel(
         responsesPerThread = { (10..20).random() }
     ),
     LARGE(
+        userCount = { 50 },
+        usersPerThread = { 20 },
+        threadCount = { (25..50).random() },
+        responsesPerThread = { (25..50).random() }
+    ),
+    EXTRA_LARGE(
         userCount = { 50 },
         usersPerThread = { 25 },
         threadCount = { (100..150).random() },
@@ -50,19 +68,26 @@ object MailtimeChecker : Checker {
         objectMapper.readValue(rawResponse, Output::class.java)
 
     override fun check(request: ChallengeRequest, response: ChallengeResponse): ChallengeResult =
-        ChallengeResult(
-            score = calculateScore(request as Input, response as Output),
-            message = "MAILTIME!"
-        )
+        (request as Input to response as Output).let { (input, output) ->
+            val score = calculateScore(input, output)
+            ChallengeResult(
+                score = score,
+                message = when {
+                    score == 4 -> ""
+                    score >= 1 -> "Expecting with office hours: ${input.expectedResponseTimes()} but got ${output.response}"
+                    else -> "Expecting without office hours: ${input.expectedResponseTimesWithoutOfficeHours()} but got ${output.response}"
+                }
+            )
+        }
 
     fun calculateScore(input: Input, output: Output): Int =
-        input.users.sumOf { user ->
+        input.users.map { user ->
             when (output.response[user.name]) {
-                user.responseTimes.average().roundToLong() -> 4L
-                user.responseTimesWithoutOfficeHours.average().roundToLong() -> 1L
+                user.responseTimesWithoutOfficeHours.averageOrZero -> 1L
+                user.responseTimes.averageOrZero -> 4L
                 else -> 0L
             }
-        }.toInt()
+        }.averageOrZero.toInt()
 }
 
 fun generateInput(difficultyLevel: DifficultyLevel): Input {
@@ -196,7 +221,13 @@ data class Email(
     val receiver: String get() = receiverUser.name
 }
 
-data class Input(val emails: List<Email>, val users: List<User>) : ChallengeRequest
+data class Input(val emails: List<Email>, val users: List<User>) : ChallengeRequest {
+    fun expectedResponseTimes() =
+        users.associate { it.name to it.responseTimes.averageOrZero }
+
+    fun expectedResponseTimesWithoutOfficeHours() =
+        users.associate { it.name to it.responseTimesWithoutOfficeHours.averageOrZero }
+}
 
 data class Output(val response: Map<String, Long>) : ChallengeResponse
 
@@ -212,3 +243,5 @@ private val officeHours = listOf(
 )
 
 private val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
+
+private val List<Long>.averageOrZero: Long get() = takeIf { it.isNotEmpty() }?.average()?.roundToLong() ?: 0L

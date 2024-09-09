@@ -1,6 +1,12 @@
 package com.ubs.codingchallenge.mailtime.service
 
-import com.ubs.codingchallenge.mailtime.model.*
+import com.ubs.codingchallenge.mailtime.model.DifficultyLevel
+import com.ubs.codingchallenge.mailtime.model.Email
+import com.ubs.codingchallenge.mailtime.model.Input
+import com.ubs.codingchallenge.mailtime.model.MailtimeChecker
+import com.ubs.codingchallenge.mailtime.model.Output
+import com.ubs.codingchallenge.mailtime.model.User
+import com.ubs.codingchallenge.mailtime.model.generateInput
 import java.time.DayOfWeek
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
@@ -17,8 +23,8 @@ class MailtimeSolver {
     }
 
     private fun responseTimesForUser(user: User, emails: List<Email>): List<Long> {
-        return emails.filter { email -> email.sender.name == user.name && email.subject.startsWith("RE:") }
-            .map { email -> timeTakenToRespond(findQuestion(email, emails).timeSent, email.timeSent, email.sender) }
+        return emails.filter { email -> email.senderUser.name == user.name && email.subject.startsWith("RE:") }
+            .map { email -> timeTakenToRespond(findQuestion(email, emails).timeSent, email.timeSent, email.senderUser) }
 
     }
 }

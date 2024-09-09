@@ -39,12 +39,12 @@ private class MailtimeSolver(
     }.let { (results, userByName) ->
         input.emails.groupBy { email -> email.subject.replace("RE: ", "") }.values.forEach { emails ->
             emails.sortedBy { it.timeSent }.reduce { previous, current ->
-                println("DEBUG: $current")
+                logDebug("DEBUG: $current")
                 results.merge(
                     current.sender,
                     SubPeriod(
                         duration = calculator(userByName.getValue(current.sender), previous.timeSent, current.timeSent)
-                            .also { println("\t${current.sender} + ${it.seconds}") },
+                            .also { logDebug("\t${current.sender} + ${it.seconds}") },
                         count = 1
                     ),
                     SubPeriod::plus
@@ -59,7 +59,7 @@ private class MailtimeSolver(
         operator fun plus(other: SubPeriod) =
             SubPeriod(duration = this.duration + other.duration, count = this.count + other.count)
 
-        override fun invoke(): Long = duration.seconds.toDouble().div(count).roundToLong()
+        override fun invoke(): Long = duration.seconds.toDouble().div(count.coerceAtLeast(1)).roundToLong()
     }
 }
 
@@ -68,14 +68,14 @@ private val partOne: (User, OffsetDateTime, OffsetDateTime) -> Duration =
 
 private val partTwo: (User, OffsetDateTime, OffsetDateTime) -> Duration =
     { user, previous, current ->
-        println("\tDEBUG: CALCULATING FOR [${user.name}, ${user.officeHours}]: $previous .. $current")
+        logDebug("\tDEBUG: CALCULATING FOR [${user.name}, ${user.officeHours}]: $previous .. $current")
         val convert: (OffsetDateTime) -> ZonedDateTime = { it.atZoneSameInstant(user.officeHours.timeZone) }
         val (zonedPrevious, zonedCurrent) = convert(previous) to convert(current)
         generateSequence(FromTo(officeHours = user.officeHours, from = null, to = zonedPrevious)) {
-            it.until(cutOff = zonedCurrent).apply { println("\t\t$this") }
+            it.until(cutOff = zonedCurrent).apply { logDebug("\t\t$this") }
         }.takeWhile { it.from == null || it.from < zonedCurrent }
             .mapNotNull { it.toDuration }
-            .reduce { a, b -> a + b }
+            .reduceOrNull { a, b -> a + b } ?: Duration.ZERO
     }
 
 private data class FromTo(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
@@ -109,4 +109,8 @@ private data class FromTo(val officeHours: OfficeHours, val from: ZonedDateTime?
 
         private val format: (ZonedDateTime) -> String = { it.toOffsetDateTime().format(formatter) }
     }
+}
+
+private fun logDebug(message: String) {
+    // println(message)
 }
