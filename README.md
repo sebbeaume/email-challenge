@@ -21,7 +21,7 @@ Your goal is to find the average response time in seconds, rounded off, of each 
 
 The company is however aware that simply checking the average response time is not a significant KPI, and could lead to
 misinterpretation of the employees performance, as they are based in different timezones. Thus, you will be rewarded
-only a **quarter of the maximum possible points** for finding these statistic correctly.
+only a **quarter of the maximum possible points per user** for finding these statistic correctly.
 
 For full grade, the company wants you to take into account the working hours of each of the employees when calculating
 their average response time.
@@ -95,3 +95,7 @@ We will `POST` the following JSON to an endpoint `/mailtime`:
   "Bob": 3600
 }
 ```
+
+## Example
+
+See [here](/example).
