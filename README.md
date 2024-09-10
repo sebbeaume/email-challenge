@@ -1,7 +1,7 @@
-# Mailtime!
+# It's Mailtime!
 
 To ensure workers are making the most of their time, HQ has decided to track the time it takes for employees to reply on
-emails...
+emails.
 
 You will be presented an extract of the emails sent in the company, between workers at different locations around the
 world.
@@ -21,7 +21,7 @@ Your goal is to find the average response time in seconds, rounded off, of each 
 
 The company is however aware that simply checking the average response time is not a significant KPI, and could lead to
 misinterpretation of the employees performance, as they are based in different timezones. Thus, you will be rewarded
-only a **quarter of the maximum possible points** for finding these statistic correctly.
+only a **quarter of the maximum possible points per user** for finding these statistic correctly.
 
 For full grade, the company wants you to take into account the working hours of each of the employees when calculating
 their average response time.
@@ -41,6 +41,8 @@ Example:
 - Thus, she took **one full working day + 5 minutes** to answer, or (18-9) hours + 5 minutes = **32 700 seconds**
 
 ## Your input
+
+We will `POST` the following JSON to an endpoint `/mailtime`:
 
 ```json
 {
@@ -93,3 +95,7 @@ Example:
   "Bob": 3600
 }
 ```
+
+## Example
+
+See [here](/example).

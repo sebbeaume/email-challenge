@@ -69,25 +69,34 @@ object MailtimeChecker : Checker {
 
     override fun check(request: ChallengeRequest, response: ChallengeResponse): ChallengeResult =
         (request as Input to response as Output).let { (input, output) ->
-            val score = calculateScore(input, output)
-            ChallengeResult(
-                score = score,
-                message = when {
-                    score == 4 -> ""
-                    score >= 1 -> "Expecting with office hours: ${input.expectedResponseTimes()} but got ${output.response}"
-                    else -> "Expecting without office hours: ${input.expectedResponseTimesWithoutOfficeHours()} but got ${output.response}"
-                }
-            )
+            calculateScore(input, output)
+                .let { ChallengeResult(score = 5 * it, message = if (it == 4) "" else hint(input, output)) }
         }
 
     fun calculateScore(input: Input, output: Output): Int =
         input.users.map { user ->
             when (output.response[user.name]) {
-                user.responseTimesWithoutOfficeHours.averageOrZero -> 1L
                 user.responseTimes.averageOrZero -> 4L
+                user.responseTimesWithoutOfficeHours.averageOrZero -> 1L
                 else -> 0L
             }
         }.averageOrZero.toInt()
+
+    private fun hint(input: Input, output: Output): String {
+        val map = input.expectedResponseTimes().mapValues { (_, value) -> Result(expected = value) }.toMutableMap()
+        output.response.forEach { (key, value) -> map.merge(key, Result(actual = value), Result::plus) }
+        return map.toList().partition { (_, result) -> result.isCorrect }.let { (_, incorrect) ->
+            "Incorrect: $incorrect"
+        }
+    }
+
+    private data class Result(val expected: Long? = null, val actual: Long? = null) {
+        val isCorrect = expected == actual
+
+        operator fun plus(other: Result) = copy(expected = expected ?: other.expected, actual = actual ?: other.actual)
+
+        override fun toString(): String = if (isCorrect) "Correct" else "Expected $expected but got $actual"
+    }
 }
 
 fun generateInput(difficultyLevel: DifficultyLevel): Input {

@@ -23,7 +23,7 @@ class SolverController {
 
     @PostMapping(value = ["/mailtime"], consumes = [MediaType.APPLICATION_JSON_VALUE])
     fun evaluate(@RequestBody input: SolverInput): ResponseEntity<Output> =
-        input.let(MailtimeSolver(partTwo)).let(::Output).let { ResponseEntity.ok(it) }
+        input.let(MailtimeSolver(partTwo)).let { ResponseEntity.ok(it) }
 }
 
 data class SolverInput(val emails: List<SolverEmail>, val users: List<User>)
@@ -31,57 +31,62 @@ data class SolverInput(val emails: List<SolverEmail>, val users: List<User>)
 data class SolverEmail(val subject: String, val sender: String, val receiver: String, val timeSent: OffsetDateTime)
 
 private class MailtimeSolver(
-    private val calculator: (User, OffsetDateTime, OffsetDateTime) -> Duration
-) : (SolverInput) -> Map<String, Long> {
-    override fun invoke(input: SolverInput): Map<String, Long> = input.run {
-        users.associate { it.name to SubPeriod(duration = Duration.ZERO, count = 0) }.toMutableMap() to
-                users.associateBy { it.name }
+    private val calculator: (User, OffsetDateTime, OffsetDateTime) -> Sequence<Segment>
+) : (SolverInput) -> Output {
+    override fun invoke(input: SolverInput): Output = input.run {
+        users.associate { it.name to UserTime(duration = Duration.ZERO, count = 0) }.toMutableMap() to
+                users.associateBy(User::name)
     }.let { (results, userByName) ->
         input.emails.groupBy { email -> email.subject.replace("RE: ", "") }.values.forEach { emails ->
             emails.sortedBy { it.timeSent }.reduce { previous, current ->
-                logDebug("DEBUG: $current")
+                val user = userByName.getValue(current.sender)
+                log { "$current\n\tCALCULATING FOR [${user.name}, ${user.officeHours}]: ${previous.timeSent} .. ${current.timeSent}" }
+                val logger = { it: UserTime ->
+                    log { "\tRESULT FOR [${current.sender}]: ${results[current.sender] ?: 0} + ${it.duration.seconds}s" }
+                }
                 results.merge(
                     current.sender,
-                    SubPeriod(
-                        duration = calculator(userByName.getValue(current.sender), previous.timeSent, current.timeSent)
-                            .also { logDebug("\t${current.sender} + ${it.seconds}") },
-                        count = 1
-                    ),
-                    SubPeriod::plus
+                    calculator(user, previous.timeSent, current.timeSent)
+                        .mapNotNull { segment -> segment.toDuration?.also { log { "\t\t$segment" } } }
+                        .reduceOrNull { a, b -> a + b }
+                        .let { UserTime(it ?: Duration.ZERO) }
+                        .also(logger),
+                    UserTime::plus
                 )
                 current
             }
         }
         results.mapValues { (_, value) -> value() }
-    }
+    }.let(::Output)
 
-    private data class SubPeriod(val duration: Duration, val count: Int) : () -> Long {
-        operator fun plus(other: SubPeriod) =
-            SubPeriod(duration = this.duration + other.duration, count = this.count + other.count)
+    private fun log(message: () -> String): Unit = Unit // println(message())
+
+    private data class UserTime(val duration: Duration, val count: Int = 1) : () -> Long {
+        operator fun plus(other: UserTime) =
+            UserTime(duration = this.duration + other.duration, count = this.count + other.count)
 
         override fun invoke(): Long = duration.seconds.toDouble().div(count.coerceAtLeast(1)).roundToLong()
     }
 }
 
-private val partOne: (User, OffsetDateTime, OffsetDateTime) -> Duration =
-    { _, previous, current -> Duration.between(previous, current) }
+private fun zoned(user: User, offsetDateTime: OffsetDateTime): ZonedDateTime =
+    offsetDateTime.atZoneSameInstant(user.officeHours.timeZone)
 
-private val partTwo: (User, OffsetDateTime, OffsetDateTime) -> Duration =
-    { user, previous, current ->
-        logDebug("\tDEBUG: CALCULATING FOR [${user.name}, ${user.officeHours}]: $previous .. $current")
-        val convert: (OffsetDateTime) -> ZonedDateTime = { it.atZoneSameInstant(user.officeHours.timeZone) }
-        val (zonedPrevious, zonedCurrent) = convert(previous) to convert(current)
-        generateSequence(FromTo(officeHours = user.officeHours, from = null, to = zonedPrevious)) {
-            it.until(cutOff = zonedCurrent).apply { logDebug("\t\t$this") }
-        }.takeWhile { it.from == null || it.from < zonedCurrent }
-            .mapNotNull { it.toDuration }
-            .reduceOrNull { a, b -> a + b } ?: Duration.ZERO
-    }
+private val partOne: (User, OffsetDateTime, OffsetDateTime) -> Sequence<Segment> = { user, previous, current ->
+    sequenceOf(Segment(officeHours = user.officeHours, from = zoned(user, previous), to = zoned(user, current)))
+}
 
-private data class FromTo(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
+private val partTwo: (User, OffsetDateTime, OffsetDateTime) -> Sequence<Segment> = { user, previous, current ->
+    val (zonedPrevious, zonedCurrent) = zoned(user, previous) to zoned(user, current)
+    generateSequence(Segment(officeHours = user.officeHours, from = null, to = zonedPrevious)) {
+        it.until(cutOff = zonedCurrent)
+    }.takeWhile { it.from == null || it.from < zonedCurrent }
+}
+
+private data class Segment(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
     val toDuration: Duration? = from?.let { Duration.between(it, to) }
 
-    fun until(cutOff: ZonedDateTime): FromTo =
+    fun until(cutOff: ZonedDateTime): Segment =
         copy(from = to.takeIf { it in officeHours }, to = to.with(officeHours.asTemporalAdjuster).coerceAtMost(cutOff))
 
     private operator fun OfficeHours.contains(zonedDateTime: ZonedDateTime) = zonedDateTime.hour in start until end
@@ -109,8 +114,4 @@ private data class FromTo(val officeHours: OfficeHours, val from: ZonedDateTime?
 
         private val format: (ZonedDateTime) -> String = { it.toOffsetDateTime().format(formatter) }
     }
-}
-
-private fun logDebug(message: String) {
-    // println(message)
 }
