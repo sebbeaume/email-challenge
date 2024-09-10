@@ -4,10 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.ubs.codingchallenge.mailtime.config.objectMapper
 import com.ubs.codingchallenge.mailtime.service.timeTakenToRespond
 import java.time.DayOfWeek
+import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjuster
+import java.time.temporal.TemporalAdjusters
 import kotlin.math.roundToLong
 
 object MailtimeChallenge : LevelBasedChallenge {
@@ -69,8 +73,21 @@ object MailtimeChecker : Checker {
 
     override fun check(request: ChallengeRequest, response: ChallengeResponse): ChallengeResult =
         (request as Input to response as Output).let { (input, output) ->
-            calculateScore(input, output)
-                .let { ChallengeResult(score = 5 * it, message = if (it == 4) "" else hint(input, output)) }
+            val responseTimesWithoutOfficeHours = MailtimeSolver(partOne)(input).response
+            val responseTimes = MailtimeSolver(partTwo)(input).response
+            val (scores, messages) = input.users.map(User::name).map {
+                val expectedPartTwo = responseTimes.getValue(it)
+                val expectedPartOne = responseTimesWithoutOfficeHours.getValue(it)
+                when (val actual = output.response[it]) {
+                    expectedPartTwo -> 4L to null
+                    expectedPartOne -> 1L to null
+                    else -> 0L to "$it: expecting $expectedPartTwo (1) or $expectedPartOne (1/4) but got $actual"
+                }
+            }.unzip()
+            ChallengeResult(
+                score = 5 * scores.averageOrZero.toInt(),
+                message = messages.mapNotNull { it }.joinToString()
+            )
         }
 
     fun calculateScore(input: Input, output: Output): Int =
@@ -81,22 +98,6 @@ object MailtimeChecker : Checker {
                 else -> 0L
             }
         }.averageOrZero.toInt()
-
-    private fun hint(input: Input, output: Output): String {
-        val map = input.expectedResponseTimes().mapValues { (_, value) -> Result(expected = value) }.toMutableMap()
-        output.response.forEach { (key, value) -> map.merge(key, Result(actual = value), Result::plus) }
-        return map.toList().partition { (_, result) -> result.isCorrect }.let { (_, incorrect) ->
-            "Incorrect: $incorrect"
-        }
-    }
-
-    private data class Result(val expected: Long? = null, val actual: Long? = null) {
-        val isCorrect = expected == actual
-
-        operator fun plus(other: Result) = copy(expected = expected ?: other.expected, actual = actual ?: other.actual)
-
-        override fun toString(): String = if (isCorrect) "Correct" else "Expected $expected but got $actual"
-    }
 }
 
 fun generateInput(difficultyLevel: DifficultyLevel): Input {
@@ -230,13 +231,7 @@ data class Email(
     val receiver: String get() = receiverUser.name
 }
 
-data class Input(val emails: List<Email>, val users: List<User>) : ChallengeRequest {
-    fun expectedResponseTimes() =
-        users.associate { it.name to it.responseTimes.averageOrZero }
-
-    fun expectedResponseTimesWithoutOfficeHours() =
-        users.associate { it.name to it.responseTimesWithoutOfficeHours.averageOrZero }
-}
+data class Input(val emails: List<Email>, val users: List<User>) : ChallengeRequest
 
 data class Output(val response: Map<String, Long>) : ChallengeResponse
 
@@ -254,3 +249,87 @@ private val officeHours = listOf(
 private val allowedChars = ('A'..'Z') + ('a'..'z') + ('0'..'9')
 
 private val List<Long>.averageOrZero: Long get() = takeIf { it.isNotEmpty() }?.average()?.roundToLong() ?: 0L
+
+class MailtimeSolver(
+    private val calculator: (User, ZonedDateTime, ZonedDateTime) -> Sequence<Segment>
+) : (Input) -> Output {
+    override fun invoke(input: Input): Output = input.run {
+        users.associate { it.name to UserTime(duration = Duration.ZERO, count = 0) }.toMutableMap() to
+                users.associateBy(User::name)
+    }.let { (results, userByName) ->
+        input.emails.groupBy { email -> email.subject.replace("RE: ", "") }.values.forEach { emails ->
+            emails.sortedBy { it.timeSent }.reduce { previous, current ->
+                val user = userByName.getValue(current.sender)
+                log { "$current\n\tCALCULATING FOR [${user.name}, ${user.officeHours}]: ${previous.timeSent} .. ${current.timeSent}" }
+                val logger = { it: UserTime ->
+                    log { "\tRESULT FOR [${current.sender}]: ${results[current.sender] ?: 0} + ${it.duration.seconds}s" }
+                }
+                results.merge(
+                    current.sender,
+                    calculator(user, previous.timeSent, current.timeSent)
+                        .mapNotNull { segment -> segment.toDuration?.also { log { "\t\t$segment" } } }
+                        .reduceOrNull { a, b -> a + b }
+                        .let { UserTime(it ?: Duration.ZERO) }
+                        .also(logger),
+                    UserTime::plus
+                )
+                current
+            }
+        }
+        results.mapValues { (_, value) -> value() }
+    }.let(::Output)
+
+    private fun log(message: () -> String): Unit = Unit // println(message())
+
+    private data class UserTime(val duration: Duration, val count: Int = 1) : () -> Long {
+        operator fun plus(other: UserTime) =
+            UserTime(duration = this.duration + other.duration, count = this.count + other.count)
+
+        override fun invoke(): Long = duration.seconds.toDouble().div(count.coerceAtLeast(1)).roundToLong()
+    }
+}
+
+val partOne: (User, ZonedDateTime, ZonedDateTime) -> Sequence<Segment> = { user, previous, current ->
+    sequenceOf(Segment(officeHours = user.officeHours, from = previous, to = current))
+}
+
+val partTwo: (User, ZonedDateTime, ZonedDateTime) -> Sequence<Segment> = { user, previous, current ->
+    generateSequence(Segment(officeHours = user.officeHours, from = null, to = previous)) {
+        it.until(cutOff = current)
+    }.takeWhile { it.from == null || it.from < current }
+}
+
+data class Segment(val officeHours: OfficeHours, val from: ZonedDateTime?, val to: ZonedDateTime) {
+    val toDuration: Duration? = from?.let { Duration.between(it, to) }
+
+    fun until(cutOff: ZonedDateTime): Segment =
+        copy(from = to.takeIf { it in officeHours }, to = to.with(officeHours.asTemporalAdjuster).coerceAtMost(cutOff))
+
+    private operator fun OfficeHours.contains(zonedDateTime: ZonedDateTime) = zonedDateTime.hour in start until end
+
+    private val OfficeHours.asTemporalAdjuster: TemporalAdjuster
+        get() = TemporalAdjuster { temporal ->
+            ZonedDateTime.from(temporal).let {
+                when (it.dayOfWeek) {
+                    DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> it.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
+                        .withHour(start)
+
+                    else -> when {
+                        it.hour < start -> it.withHour(start)
+                        it.hour >= end -> it.with(TemporalAdjusters.next(it.dayOfWeek.nextWeekday)).withHour(start)
+                        else -> it.withHour(end)
+                    }
+                }
+            }.withMinute(0).withSecond(0).withNano(0)
+        }
+
+    private val DayOfWeek.nextWeekday: DayOfWeek get() = if (this >= DayOfWeek.FRIDAY) DayOfWeek.MONDAY else this.plus(1)
+
+    override fun toString(): String = "${from?.let(format) ?: "".padEnd(24, ' ')} .. ${format(to)}"
+
+    companion object {
+        private val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssZ")
+
+        private val format: (ZonedDateTime) -> String = { it.toOffsetDateTime().format(formatter) }
+    }
+}
