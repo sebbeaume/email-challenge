@@ -123,7 +123,7 @@ private fun generateEmailThread(users: List<User>): Sequence<Email> =
             subject = getRandomString(10),
             senderUser = users[0],
             receiverUser = users[1],
-            timeSent = LocalDate.of(2024, 1, 8)
+            timeSent = LocalDate.of(2024, 5, 1)
                 .atStartOfDay(users[0].officeHours.timeZone)
                 .let(users[0].officeHours::randomTimeSince)
         ),
