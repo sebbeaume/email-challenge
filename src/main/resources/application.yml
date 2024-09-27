@@ -6,4 +6,4 @@ logging:
   level:
     com:
       ubs:
-        codingchallenge: DEBUG
+        codingchallenge: INFO
