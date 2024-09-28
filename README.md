@@ -32,7 +32,7 @@ calculating their average response time.
 
 ### Example:
 
-- Alice sent an email the Bob on the **Friday 12 January at 15:00 Paris time**, which corresponds to **21:00 in
+- Alice sent an email the Bob on the **Friday 12 January at 14:00 Paris time**, which corresponds to **21:00 in
   Singapore Time**
 - Bob responded to this email on the **Monday 15 January at 9:00 Singapore time**, which corresponds to **03:00 in Paris
   time**
