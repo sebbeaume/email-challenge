@@ -55,19 +55,19 @@ We will `POST` the following JSON to an endpoint `/mailtime`:
       "subject": "subject",
       "sender": "Alice",
       "receiver": "Bob",
-      "timeSent": "2024-01-12T15:00:00+01:00"
+      "timeSent": "2024-04-12T15:00:00+02:00"
     },
     {
       "subject": "RE: subject",
       "sender": "Bob",
       "receiver": "Alice",
-      "timeSent": "2024-01-15T09:00:00+08:00"
+      "timeSent": "2024-04-15T09:00:00+08:00"
     },
     {
       "subject": "RE: RE: subject",
       "sender": "Alice",
       "receiver": "Bob",
-      "timeSent": "2024-01-16T09:05:00+01:00"
+      "timeSent": "2024-04-16T09:05:00+02:00"
     }
   ],
   "users": [
