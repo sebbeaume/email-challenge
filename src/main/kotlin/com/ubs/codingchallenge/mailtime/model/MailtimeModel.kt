@@ -78,15 +78,15 @@ object MailtimeChecker : Checker {
             val (scores, messages) = input.users.map(User::name).map {
                 val expectedPartTwo = responseTimes.getValue(it)
                 val expectedPartOne = responseTimesWithoutOfficeHours.getValue(it)
-                when (val actual = output.response[it]) {
+                when (output.response[it]) {
                     expectedPartTwo -> 4L to null
                     expectedPartOne -> 1L to null
-                    else -> 0L to "$it: expecting $expectedPartTwo (1) or $expectedPartOne (1/4) but got $actual"
+                    else -> 0L to it
                 }
             }.unzip()
             ChallengeResult(
                 score = 5 * scores.averageOrZero.toInt(),
-                message = messages.mapNotNull { it }.joinToString()
+                message = messages.mapNotNull { it }.joinToString(",")
             )
         }
 

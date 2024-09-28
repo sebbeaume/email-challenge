@@ -98,9 +98,11 @@ Your expected output. You will either be answering for the Basic part, or Advanc
 We suggest solving for the Basic answers first, before attempting to factor in working hours.
 
 ```json
-{
-  "Alice": 32700,
-  "Bob": 3600
+{ "response": 
+    {
+        "Alice": 32700,
+        "Bob": 3600
+    }
 }
 ```
 
