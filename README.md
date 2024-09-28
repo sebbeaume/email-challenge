@@ -11,11 +11,11 @@ Your goal is to find the average response time in seconds, rounded off, of each 
 
 ### Example:
 
-- Alice sent an email the Bob on the **Friday 12 January at 15:00 Paris time**, which corresponds to **21:00 in
+- Alice sent an email the Bob on the **Friday 12 April at 15:00 Paris time**, which corresponds to **21:00 in
   Singapore Time**
-- Bob responded to this email on the **Monday 15 January at 9:00 Singapore time**, which corresponds to **03:00 in Paris
+- Bob responded to this email on the **Monday 15 April at 9:00 Singapore time**, which corresponds to **03:00 in Paris
   time**
-- Alice responded to this email on the *Tuesday 16 january at 09:05 Paris time**
+- Alice responded to this email on the *Tuesday 16 April at 09:05 Paris time**
 - The time elapsed between the moment Bob received the email and the time he answered is **60 hours**, or **216 000
   seconds**
 - The time elapsed between the moment Alice received Bob's response and the time she answered is **30 hours and 5
@@ -32,11 +32,11 @@ calculating their average response time.
 
 ### Example:
 
-- Alice sent an email the Bob on the **Friday 12 January at 14:00 Paris time**, which corresponds to **21:00 in
+- Alice sent an email the Bob on the **Friday 12 April at 15:00 Paris time**, which corresponds to **21:00 in
   Singapore Time**
-- Bob responded to this email on the **Monday 15 January at 9:00 Singapore time**, which corresponds to **03:00 in Paris
+- Bob responded to this email on the **Monday 15 April at 9:00 Singapore time**, which corresponds to **03:00 in Paris
   time**
-- Alice responded to this email on the *Tuesday 16 january at 09:05 Paris time**
+- Alice responded to this email on the *Tuesday 16 April at 09:05 Paris time**
 - Bob, like every employee of the company, **doesn't work on the weekends**
 - Bob answered **1 hour after the start of his next working day** : he thus took **3600 seconds** to answer the email
 - Alice received the response on the Monday morning at 3Am **before her working hours**
