@@ -214,7 +214,7 @@ data class User(
 data class OfficeHours(val timeZone: ZoneId, val start: Int, val end: Int) {
     fun randomTimeSince(from: ZonedDateTime): ZonedDateTime =
         from.withZoneSameInstant(timeZone)
-            .withHour((start..<end).random())
+            .withHour((start until end).random())
             .withMinute((0..59).random())
             .withSecond((0..59).random())
 
@@ -309,7 +309,7 @@ data class Segment(val officeHours: OfficeHours, val from: ZonedDateTime?, val t
 
     private val OfficeHours.asTemporalAdjuster: TemporalAdjuster
         get() = TemporalAdjuster { temporal ->
-            ZonedDateTime.from(temporal).let {
+            ZonedDateTime.from(temporal).withZoneSameInstant(timeZone).let {
                 when (it.dayOfWeek) {
                     DayOfWeek.SATURDAY, DayOfWeek.SUNDAY -> it.with(TemporalAdjusters.next(DayOfWeek.MONDAY))
                         .withHour(start)
